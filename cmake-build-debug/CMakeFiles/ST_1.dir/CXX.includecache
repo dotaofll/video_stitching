@@ -1,0 +1,22 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/eksan/Documents/stitching/ST_1/RadialStitcher.h
+vector
+-
+opencv2/opencv.hpp
+-
+
+/home/eksan/Documents/stitching/ST_1/main.cpp
+opencv2/opencv.hpp
+-
+iostream
+-
+RadialStitcher.h
+/home/eksan/Documents/stitching/ST_1/RadialStitcher.h
+
