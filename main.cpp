@@ -3,6 +3,8 @@
 #include <memory>
 #include <array>
 #include <string_view>
+#include <mutex>
+#include <future>
 #include "./Thread/ThreadPool.h"
 #include "RadialStitcher.h"
 
@@ -29,19 +31,20 @@ VideoCapture read_camera(string cam_id) {
 
 int main()
 {
-	std::array<string_view, 4> cam_idx{ "/home/eksan/Desktop/test.mp4",
+	std::array<string, 4> cam_idx{ "/home/eksan/Desktop/test.mp4",
 		"/home/eksan/Desktop/test.mp4",
 		"/home/eksan/Desktop/test.mp4",
 		"/home/eksan/Desktop/test.mp4" };
 
 	stiching::ThreadPool pool(NUM_IMAGES);
-
+	std::mutex mut_a,mut_b;
 	vector<VideoCapture> captures;
 	vector<Mat> frameVec(4, Mat());
 	vector<Mat> img_list;
 
 	for (int i = 0; i < 4; i++) {
 		pool.async([&]() {
+			std::scoped_lock{mut_a,mut_b};
 			captures.push_back(std::move
 			(read_camera
 			(cam_idx[i].data())));
@@ -50,26 +53,28 @@ int main()
 
 	for (int i = 0; i < 4; i++) {
 		pool.async([&]() {
+			std::scoped_lock{mut_a,mut_b};
 			Mat frame;
 			captures[i] >> frame;
 			frameVec.push_back(frame);
 			});
 	}
+	
+	pool.start();
 
-	std::shared_ptr<RadialStitcher> rs = make_shared<RadialStitcher>
-		(new RadialStitcher(NUM_IMAGES));
+	
+	std::shared_ptr<RadialStitcher> rs{ new RadialStitcher{NUM_IMAGES} };
 	Rect rect(19, 0, 602, 480);
 	vector<Mat> cylinder_maps = rs->cylinder_projection_map(640, 480, 720);  //calculate the mapping of the cylinder
 
 	for (int i = 0; i < 4; i++) {
-		pool.async([&]() {
-			Mat cylinder;
-			cv::remap(frameVec[i], cylinder,
-				cylinder_maps[0], cylinder_maps[1],
-				cv::INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
-			cylinder = cylinder(rect); //remove the blank edge of the cylinder image
-			img_list.push_back(cylinder);
-			});
+		Mat cylinder;
+		cv::remap(frameVec[i], cylinder,
+			cylinder_maps[0], cylinder_maps[1],
+			cv::INTER_LINEAR, BORDER_CONSTANT, Scalar(0, 0, 0));
+		cylinder = cylinder(rect); //remove the blank edge of the cylinder image
+		img_list.push_back(cylinder);
+		
 	}
 
 	Mat result = rs->Stitch(img_list);
